@@ -50,7 +50,7 @@ export function Packages() {
                 className="mt-6 w-full"
               >
                 <span>
-                  Book a call<span className="sr-only"> about the {tier.name} package</span>
+                  Get in touch<span className="sr-only"> about the {tier.name} package</span>
                 </span>
               </ButtonLink>
             </li>

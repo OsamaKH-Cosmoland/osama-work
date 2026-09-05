@@ -24,7 +24,7 @@ export const hero = {
   eyebrow: 'Freelance developer, Alexandria, Egypt',
   headline: 'I build e-commerce stores for small brands in under two weeks.',
   body: 'Coded from scratch, not a theme. Every store ships with automated tests, error monitoring, and uptime checks, so problems reach me before they reach your customers. I stay available after launch.',
-  primaryCta: 'Book a call',
+  primaryCta: 'Get in touch',
   secondaryCta: 'See what I built',
 }
 
