@@ -1,1 +1,94 @@
 @import 'tailwindcss';
+
+/**
+ * The design rules here are the voice rules in content.ts, applied to layout:
+ * short and direct, plain over clever, nothing decorative that does not carry
+ * information.
+ *
+ * Practically that means: one typeface, four type sizes, near-monochrome with a
+ * single accent reserved for actions, hairline borders instead of shadows, and
+ * whitespace doing the work that decoration usually does.
+ *
+ * No webfont on purpose. The page sells a performance pass; loading 40KB of
+ * font to say so would undercut it. The system stack renders instantly.
+ *
+ * Prose blocks use max-w-prose (65ch) rather than a pixel max-width. The small
+ * text size is 14px, so a fixed 768px column ran to 110 characters a line; a
+ * ch-based measure stays in the readable band at every size.
+ */
+
+@theme {
+  --color-page: #ffffff;
+  --color-raise: #f6f7f9;
+  --color-ink: #14171a;
+  --color-muted: #585f68;
+  --color-line: #e2e5e9;
+  --color-line-strong: #c9ced5;
+  --color-accent: #1b45d0;
+  --color-accent-hover: #163aae;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  /* Four steps. Anything that does not fit one of these does not need its own size. */
+  --text-display: clamp(2.05rem, 1.3rem + 3.4vw, 3.4rem);
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.022em;
+
+  --text-heading: clamp(1.45rem, 1.15rem + 1.3vw, 2rem);
+  --text-heading--line-height: 1.2;
+  --text-heading--letter-spacing: -0.014em;
+
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.62;
+
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.5;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--color-page);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One visible focus treatment everywhere, so nothing can be operated blind. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Native disclosure is used for the FAQ: keyboard and screen reader support
+     for free, and it still works with JavaScript off. */
+  summary {
+    cursor: pointer;
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}

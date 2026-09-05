@@ -1,0 +1,12 @@
+import type { ReactNode } from 'react'
+
+/** One measure for the whole page, so no section invents its own width. */
+export function Container({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return <div className={`mx-auto w-full max-w-5xl px-5 sm:px-8 ${className}`}>{children}</div>
+}
