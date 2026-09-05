@@ -106,6 +106,29 @@ describe('POST /api/contact', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('returns 500 and logs a stack when something unexpected throws', async () => {
+    const logged = vi.spyOn(console, 'error')
+    vi.stubGlobal('fetch', vi.fn())
+    const res = mockRes()
+
+    // Reading req.body throws, which happens before any of the handler's own
+    // error handling. Only the outer try/catch can turn this into a response.
+    const hostileReq = {
+      method: 'POST',
+      get body(): unknown {
+        throw new Error('body stream exploded')
+      },
+    }
+
+    await handler(hostileReq as never, res as never)
+
+    expect(res.statusCode).toBe(500)
+    expect(res.body).toMatchObject({ ok: false })
+    expect(logged).toHaveBeenCalled()
+    const loggedText = logged.mock.calls.flat().join(' ')
+    expect(loggedText).toContain('body stream exploded')
+  })
+
   it('does not leak the bot token in the error response', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,

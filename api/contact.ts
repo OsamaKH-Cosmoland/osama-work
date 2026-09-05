@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import * as Sentry from '@sentry/node'
+import { captureException } from './_sentry'
 import { validateContact, type ContactData } from '../shared/validation'
 
 /**
@@ -7,27 +7,18 @@ import { validateContact, type ContactData } from '../shared/validation'
  *
  * Same-origin, so there is no CORS handling here on purpose. If this ever needs
  * to be called from another domain, that is a deliberate change, not a default.
+ *
+ * Nothing heavy is imported at module scope. An import that throws while the
+ * module loads kills the function before any handler code runs, which shows up
+ * in Vercel as FUNCTION_INVOCATION_FAILED with no log line to explain it. That
+ * already happened once here with @sentry/node, so everything below stays on
+ * fetch and the standard library.
  */
 
-const SENTRY_DSN = process.env.SENTRY_DSN
-
-if (SENTRY_DSN) {
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    environment: process.env.VERCEL_ENV ?? 'development',
-    // No performance tracing on a form endpoint. Errors are the whole point.
-    tracesSampleRate: 0,
-  })
-}
-
 /** Report to Sentry if it is configured, and always leave a trace in the logs. */
-function report(error: unknown, context: Record<string, unknown> = {}): void {
-  console.error('[contact]', error, context)
-  if (!SENTRY_DSN) return
-  Sentry.withScope((scope) => {
-    scope.setContext('contact', context)
-    Sentry.captureException(error)
-  })
+async function report(error: unknown, context: Record<string, unknown> = {}): Promise<void> {
+  console.error('[contact]', error instanceof Error ? (error.stack ?? error.message) : error, context)
+  await captureException(error, context)
 }
 
 /**
@@ -86,29 +77,38 @@ function parseBody(body: unknown): unknown {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST')
-    return res.status(405).json({ ok: false, error: 'Method not allowed.' })
-  }
-
-  const result = validateContact(parseBody(req.body))
-
-  if (!result.ok) {
-    // A rejected form is normal traffic, not an incident. Nothing goes to Sentry.
-    return res.status(400).json({ ok: false, errors: result.errors })
-  }
-
+  // Wraps the whole handler. Anything unexpected becomes a logged stack and a
+  // 500, instead of an opaque crash with nothing in the Vercel logs.
   try {
-    await sendTelegram(formatNotification(result.data))
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST')
+      return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+    }
+
+    const result = validateContact(parseBody(req.body))
+
+    if (!result.ok) {
+      // A rejected form is normal traffic, not an incident. Nothing goes to Sentry.
+      return res.status(400).json({ ok: false, errors: result.errors })
+    }
+
+    try {
+      await sendTelegram(formatNotification(result.data))
+    } catch (error) {
+      await report(error, { stage: 'telegram', email: result.data.email })
+      // The submission was valid. The failure is mine, so say so and give them a way out.
+      return res.status(502).json({
+        ok: false,
+        error: 'Could not deliver your message. Please email me directly.',
+      })
+    }
+
+    return res.status(200).json({ ok: true })
   } catch (error) {
-    report(error, { email: result.data.email, company: result.data.company })
-    if (SENTRY_DSN) await Sentry.flush(2000)
-    // The submission was valid. The failure is mine, so say so and give them a way out.
-    return res.status(502).json({
+    await report(error, { stage: 'handler', method: req.method })
+    return res.status(500).json({
       ok: false,
-      error: 'Could not deliver your message. Please email me directly.',
+      error: 'Something went wrong on my side. Please email me directly.',
     })
   }
-
-  return res.status(200).json({ ok: true })
 }
