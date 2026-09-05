@@ -164,7 +164,7 @@ export const caseStudy = {
      * Only put numbers here you can say out loud on a call without checking.
      */
     metrics: [
-      { value: '80 → 91', label: 'PageSpeed score, mobile' },
+      { value: '80 → 100', label: 'PageSpeed score, mobile' },
       { value: '3.8s → 2.7s', label: 'Largest Contentful Paint' },
       { value: '85 → 100', label: 'Accessibility score' },
       { value: '92 → 100', label: 'SEO score' },
