@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react'
 import { Button, ButtonLink } from '../components/Button'
 import { Section } from '../components/Section'
 import { contact, site } from '../content'
-import { LIMITS, validateContact, type ContactErrors } from '../../shared/validation'
+import { LIMITS, validateContact, type ContactErrors } from '../../api/_validation'
 
 const EMPTY = { name: '', email: '', company: '', budget: '', message: '' }
 

@@ -14,7 +14,7 @@ import {
   process,
   site,
 } from '../content'
-import { BUDGET_OPTIONS } from '../../shared/validation'
+import { BUDGET_OPTIONS } from '../../api/_validation'
 
 afterEach(cleanup)
 

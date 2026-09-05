@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import type { ContactData } from '../shared/validation'
+import type { ContactData } from './_validation'
 
 /**
  * Contact form endpoint.
@@ -27,7 +27,7 @@ async function report(error: unknown, context: Record<string, unknown> = {}): Pr
     context,
   )
   try {
-    const { captureException } = await import('./_sentry')
+    const { captureException } = await import('./_sentry.js')
     await captureException(error, context)
   } catch (importError) {
     // Reporting is best effort. Never let it become the failure.
@@ -80,6 +80,27 @@ async function sendTelegram(text: string): Promise<void> {
   }
 }
 
+/**
+ * Temporary debugging aid.
+ *
+ * With DEBUG_ERRORS=1 in the environment, error responses carry the message and
+ * stack so they can be read straight from a curl response instead of hunting
+ * through the logs. Off by default and deliberately opt-in: this endpoint is
+ * public, and stack traces should never be served to strangers.
+ */
+function withDebug(payload: Record<string, unknown>, error: unknown): Record<string, unknown> {
+  if (process.env.DEBUG_ERRORS !== '1') return payload
+  return {
+    ...payload,
+    debug: {
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : String(error),
+      code: (error as { code?: unknown })?.code,
+      stack: error instanceof Error ? error.stack : undefined,
+    },
+  }
+}
+
 /** Vercel parses JSON bodies, but be tolerant of a raw string body too. */
 function parseBody(body: unknown): unknown {
   if (typeof body !== 'string') return body
@@ -101,15 +122,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Imported here rather than at module scope so a resolution failure is
     // catchable and nameable instead of killing the function on load.
-    let validateContact: typeof import('../shared/validation').validateContact
+    let validateContact: typeof import('./_validation').validateContact
     try {
-      ;({ validateContact } = await import('../shared/validation'))
+      ;({ validateContact } = await import('./_validation.js'))
     } catch (error) {
-      await report(error, { stage: 'import', module: '../shared/validation' })
-      return res.status(500).json({
-        ok: false,
-        error: 'Something went wrong on my side. Please email me directly.',
-      })
+      await report(error, { stage: 'import', module: './_validation.js' })
+      return res
+        .status(500)
+        .json(
+          withDebug(
+            { ok: false, error: 'Something went wrong on my side. Please email me directly.' },
+            error,
+          ),
+        )
     }
 
     const result = validateContact(parseBody(req.body))
@@ -124,18 +149,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
       await report(error, { stage: 'telegram', email: result.data.email })
       // The submission was valid. The failure is mine, so say so and give them a way out.
-      return res.status(502).json({
-        ok: false,
-        error: 'Could not deliver your message. Please email me directly.',
-      })
+      return res
+        .status(502)
+        .json(
+          withDebug(
+            { ok: false, error: 'Could not deliver your message. Please email me directly.' },
+            error,
+          ),
+        )
     }
 
     return res.status(200).json({ ok: true })
   } catch (error) {
     await report(error, { stage: 'handler', method: req.method })
-    return res.status(500).json({
-      ok: false,
-      error: 'Something went wrong on my side. Please email me directly.',
-    })
+    return res
+      .status(500)
+      .json(
+        withDebug(
+          { ok: false, error: 'Something went wrong on my side. Please email me directly.' },
+          error,
+        ),
+      )
   }
 }

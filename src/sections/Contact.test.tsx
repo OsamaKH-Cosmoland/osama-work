@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Contact } from './Contact'
 import { contact } from '../content'
-import { LIMITS } from '../../shared/validation'
+import { LIMITS } from '../../api/_validation'
 
 const VALID = {
   name: 'Test Person',

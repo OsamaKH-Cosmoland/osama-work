@@ -8,6 +8,6 @@ export default defineConfig({
     // Node by default: shared/ and api/ have no DOM and should not pay for one.
     // Component tests opt in per file with a `@vitest-environment jsdom` pragma.
     environment: 'node',
-    include: ['shared/**/*.test.ts', 'api/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['api/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 })

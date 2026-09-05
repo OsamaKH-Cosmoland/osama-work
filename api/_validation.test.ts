@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BUDGET_OPTIONS, LIMITS, validateContact } from './validation'
+import { BUDGET_OPTIONS, LIMITS, validateContact } from './_validation'
 
 /** A submission that should always pass, so each test changes one thing at a time. */
 function valid(overrides: Record<string, unknown> = {}) {
