@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { captureException } from './_sentry'
-import { validateContact, type ContactData } from '../shared/validation'
+import type { ContactData } from '../shared/validation'
 
 /**
  * Contact form endpoint.
@@ -8,17 +7,32 @@ import { validateContact, type ContactData } from '../shared/validation'
  * Same-origin, so there is no CORS handling here on purpose. If this ever needs
  * to be called from another domain, that is a deliberate change, not a default.
  *
- * Nothing heavy is imported at module scope. An import that throws while the
- * module loads kills the function before any handler code runs, which shows up
- * in Vercel as FUNCTION_INVOCATION_FAILED with no log line to explain it. That
- * already happened once here with @sentry/node, so everything below stays on
- * fetch and the standard library.
+ * Nothing is imported at module scope except types, which are erased at build
+ * time. That is deliberate. An import that throws while the module loads kills
+ * the function before any handler code runs, and Vercel reports that as
+ * FUNCTION_INVOCATION_FAILED with no log line to explain it. Two separate
+ * outages here started that way. Every real import happens inside the handler,
+ * inside a try/catch, so a failure becomes a logged stack instead of a crash.
+ *
+ * A GET is the cheapest probe: it returns 405 without importing anything. If a
+ * GET returns 405 but a POST fails, the problem is in the imports, and the log
+ * will name which one.
  */
 
 /** Report to Sentry if it is configured, and always leave a trace in the logs. */
 async function report(error: unknown, context: Record<string, unknown> = {}): Promise<void> {
-  console.error('[contact]', error instanceof Error ? (error.stack ?? error.message) : error, context)
-  await captureException(error, context)
+  console.error(
+    '[contact]',
+    error instanceof Error ? (error.stack ?? error.message) : error,
+    context,
+  )
+  try {
+    const { captureException } = await import('./_sentry')
+    await captureException(error, context)
+  } catch (importError) {
+    // Reporting is best effort. Never let it become the failure.
+    console.error('[contact] could not load the error reporter:', importError)
+  }
 }
 
 /**
@@ -83,6 +97,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST')
       return res.status(405).json({ ok: false, error: 'Method not allowed.' })
+    }
+
+    // Imported here rather than at module scope so a resolution failure is
+    // catchable and nameable instead of killing the function on load.
+    let validateContact: typeof import('../shared/validation').validateContact
+    try {
+      ;({ validateContact } = await import('../shared/validation'))
+    } catch (error) {
+      await report(error, { stage: 'import', module: '../shared/validation' })
+      return res.status(500).json({
+        ok: false,
+        error: 'Something went wrong on my side. Please email me directly.',
+      })
     }
 
     const result = validateContact(parseBody(req.body))
